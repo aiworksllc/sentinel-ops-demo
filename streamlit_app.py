@@ -42,9 +42,9 @@ with st.sidebar:
     st.markdown("---")
 
     st.subheader("⚙️ Connection")
-    soe_url = st.text_input("SOE API URL", value=os.getenv("SOE_API_URL", ""))
+    soe_url = st.text_input("SOE API URL", value=os.getenv("SOE_API_URL", "http://soe-sentinel-ops-577970167.us-east-1.elb.amazonaws.com"))
     soe_key = st.text_input("SOE API Key", type="password", value=os.getenv("SOE_API_KEY", ""))
-    dashboard_url = os.getenv("SOE_DASHBOARD_URL", soe_url.rstrip("/") + "/dashboard" if soe_url else "")
+    dashboard_url = os.getenv("SOE_DASHBOARD_URL", (soe_url.rstrip("/") + "/dashboard") if soe_url else "")
 
     soe = SOEClient(api_url=soe_url, api_key=soe_key)
 

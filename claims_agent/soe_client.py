@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SOE_API_URL = os.getenv("SOE_API_URL", "http://soe-sentinel-ops-1280026220.us-east-1.elb.amazonaws.com")
+SOE_API_URL = os.getenv("SOE_API_URL", "http://soe-sentinel-ops-577970167.us-east-1.elb.amazonaws.com")
 SOE_API_KEY = os.getenv("SOE_API_KEY", "")
 
 
