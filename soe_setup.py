@@ -8,7 +8,7 @@ load_dotenv()
 
 SOE_DEFINITION = {
     "agentId": "claims-processor",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "description": "Insurance claims processing agent. Read-only access to claims, policies, and medical codes. Cannot access PII or payment systems.",
     "identity": {
         "role": "InsuranceClaimsProcessor",
@@ -24,10 +24,12 @@ SOE_DEFINITION = {
             "**/ssn*",
             "**/social-security*",
             "**/credentials*",
+            "**/credential*",
             "**/.env*",
             "**/secrets*",
-            "config/db-*",
+            "config/**",
             "**/password*",
+            "**/db-*",
         ],
         "writeAllow": [
             "claims/approved/**",
@@ -44,27 +46,24 @@ SOE_DEFINITION = {
         ],
     },
     "toolActions": {
-        "allowed": ["read_file", "write_file"],
-        "denied": [],
         "bash": {
-            "allow": ["python scripts/fraud-check.py *", "python scripts/validate.py *"],
-            "deny": ["rm -rf *", "DROP TABLE *", "DELETE FROM *", "curl * | sh", "sudo *"],
-        },
-        "execute_script": {
-            "allow": ["python scripts/*", "node scripts/*"],
-            "deny": ["rm *", "DROP *", "DELETE *", "sudo *"],
-        },
-        "query_database": {
             "allow": [
-                "SELECT * FROM claim_history*",
-                "SELECT fraud_score*",
-                "SELECT pre_auth*",
+                "python scripts/fraud-check.py *",
+                "python scripts/validate.py *",
+                "psql -c \"SELECT*",
             ],
             "deny": [
+                "rm -rf *",
+                "rm *",
                 "DROP TABLE*",
                 "DELETE FROM*",
-                "UPDATE audit_log*",
-                "INSERT INTO payments*",
+                "psql -c \"DELETE*",
+                "psql -c \"DROP*",
+                "psql -c \"UPDATE audit*",
+                "curl * | sh",
+                "sudo *",
+                "cat /etc/*",
+                "cat config/*",
             ],
         },
     },
@@ -87,7 +86,7 @@ def main():
     result = soe.deploy(SOE_DEFINITION)
 
     if result.get("deployed"):
-        print(f"SUCCESS: SOE deployed for agent '{SOE_DEFINITION['agentId']}'")
+        print(f"SUCCESS: SOE deployed for agent '{SOE_DEFINITION['agentId']}' v{SOE_DEFINITION['version']}")
     else:
         print(f"FAILED: {result}")
         sys.exit(1)
