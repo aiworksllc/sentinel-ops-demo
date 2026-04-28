@@ -290,6 +290,99 @@ if run:
     if dashboard_url:
         st.markdown(f"\n[📊 View full SOE Dashboard with live feeds →]({dashboard_url})")
 
+# ── Async SOE Agent Status ────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### Async SOE Agent Activity")
+st.caption("These agents run continuously in the background — independent of any single claim evaluation.")
+
+if soe_url and soe_key:
+    _soe = SOEClient(api_url=soe_url, api_key=soe_key)
+
+    col_chronicle2, col_arbiter2, col_beacon, col_judge = st.columns(4)
+
+    with col_chronicle2:
+        st.markdown("##### 📜 Chronicle")
+        st.caption("Immutable audit trail")
+        audit2 = _soe.get_audit_events("claims-processor")
+        events2 = audit2.get("events", [])
+        total = len(events2)
+        denied = sum(1 for e in events2 if (e.get("originalDecision") or e.get("decision")) == "deny")
+        st.metric("Events logged", total)
+        st.metric("Violations", denied)
+        if events2:
+            last = events2[-1]
+            st.caption(f"Last: `{last.get('toolName','?')}` {(last.get('originalDecision') or last.get('decision','?')).upper()}")
+
+    with col_arbiter2:
+        st.markdown("##### ⚖️ Arbiter")
+        st.caption("Cumulative risk scoring")
+        risk2 = _soe.get_risk_state("claims-processor")
+        ru = risk2.get("riskUsed", 0)
+        rm = risk2.get("riskMax", 30)
+        status2 = risk2.get("status", "normal")
+        pct2 = min(int((ru / rm) * 100), 100) if rm else 0
+        color2 = "#22c55e" if pct2 < 50 else "#f59e0b" if pct2 < 80 else "#ef4444"
+        st.metric("Risk budget", f"{ru:.1f} / {rm}")
+        st.markdown(f"""
+        <div style="background:#e2e8f0;border-radius:4px;height:10px;margin:4px 0 8px">
+          <div style="background:{color2};width:{pct2}%;height:10px;border-radius:4px"></div>
+        </div>
+        <div style="font-size:11px;color:{color2};font-weight:600">{status2.upper()}</div>
+        """, unsafe_allow_html=True)
+        st.metric("Total calls", risk2.get("totalCalls", 0))
+
+    with col_beacon:
+        st.markdown("##### 🔭 Beacon")
+        st.caption("Cross-agent anomaly detection")
+        audit3 = _soe.get_audit_events("claims-processor")
+        ev3 = audit3.get("events", [])
+        denied3 = [e for e in ev3 if (e.get("originalDecision") or e.get("decision")) == "deny"]
+        patterns_found = []
+        tool_counts = {}
+        for e in denied3:
+            t = e.get("toolName", "?")
+            tool_counts[t] = tool_counts.get(t, 0) + 1
+        for tool, cnt in tool_counts.items():
+            if cnt >= 2:
+                patterns_found.append(f"Repeated {tool} violations ({cnt}×)")
+        pii_hits = sum(1 for e in denied3 if "pii" in e.get("reason", "").lower() or "ssn" in str(e.get("toolInput", "")).lower())
+        cred_hits = sum(1 for e in denied3 if "cred" in e.get("reason", "").lower() or "db-" in str(e.get("toolInput", "")).lower())
+        if pii_hits:
+            patterns_found.append(f"PII access attempts ({pii_hits}×)")
+        if cred_hits:
+            patterns_found.append(f"Credential exfiltration attempts ({cred_hits}×)")
+        if patterns_found:
+            st.markdown('<span style="color:#ef4444;font-weight:700">⚠ ANOMALIES DETECTED</span>', unsafe_allow_html=True)
+            for p in patterns_found[:3]:
+                st.caption(f"• {p}")
+        else:
+            st.markdown('<span style="color:#22c55e;font-weight:700">✓ No anomalies</span>', unsafe_allow_html=True)
+            st.caption("Agent trajectory looks clean")
+        st.metric("Violations analyzed", len(denied3))
+
+    with col_judge:
+        st.markdown("##### 🧠 Judge")
+        st.caption("Async LLM audit loop")
+        judge = _soe.get_judge_status()
+        if judge.get("enabled"):
+            st.markdown('<span style="color:#22c55e;font-weight:700">● RUNNING</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span style="color:#94a3b8;font-weight:700">○ DISABLED</span>', unsafe_allow_html=True)
+        st.metric("Batches processed", judge.get("batchesProcessed", 0))
+        st.metric("Events reviewed", judge.get("eventsProcessed", 0))
+        if judge.get("lastRunAt"):
+            from datetime import datetime, timezone
+            try:
+                last_run = datetime.fromisoformat(judge["lastRunAt"].replace("Z", "+00:00"))
+                ago = int((datetime.now(timezone.utc) - last_run).total_seconds())
+                st.caption(f"Last run: {ago}s ago")
+            except Exception:
+                pass
+        if judge.get("errors", 0):
+            st.caption(f"⚠ {judge['errors']} error(s)")
+else:
+    st.caption("Set SOE API URL and API Key in the sidebar to see live agent status.")
+
 # ── SOE Definition Reference ──────────────────────────────────────────────────
 with st.expander("📄 View Active SOE Definition for claims-processor"):
     st.json({

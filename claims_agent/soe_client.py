@@ -79,6 +79,14 @@ class SOEClient:
         except Exception as e:
             return {"riskUsed": 0, "riskMax": 30, "status": "unknown"}
 
+    def get_judge_status(self) -> dict:
+        """Get Judge loop (async LLM audit) status."""
+        try:
+            resp = requests.get(f"{self.api_url}/v1/judge/status", headers=self.headers, timeout=5)
+            return resp.json()
+        except Exception as e:
+            return {"enabled": False, "error": str(e)}
+
     def health(self) -> bool:
         try:
             resp = requests.get(f"{self.api_url}/v1/health", timeout=5)
