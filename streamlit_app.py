@@ -222,8 +222,73 @@ if run:
                     """, unsafe_allow_html=True)
 
     st.success(f"Done — {allow_count} allowed · {deny_count} denied · {escalate_count} audit overrides")
+
+    # ── SOE Enforcement Layer ──────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### SOE Enforcement Layer")
+
+    col_chronicle, col_arbiter = st.columns(2)
+
+    with col_chronicle:
+        st.markdown("#### 📜 Chronicle — Audit Trail")
+        with st.spinner("Fetching audit events..."):
+            audit = soe.get_audit_events(scenario_info["claim_id"].lower().replace("-", "") if False else "claims-processor")
+            events = audit.get("events", [])
+        if events:
+            st.caption(f"{len(events)} events logged to immutable audit trail")
+            for e in events[-6:]:
+                dec = e.get("originalDecision") or e.get("decision", "?")
+                icon = "✅" if dec == "allow" else "🚫"
+                st.markdown(f"{icon} `{e.get('toolName','?')}` — {e.get('reason','')[:70]}")
+        else:
+            st.caption("No events yet — run a scenario first")
+
+    with col_arbiter:
+        st.markdown("#### ⚖️ Arbiter — Risk Analysis")
+        if deny_count > 0:
+            with st.spinner("Arbiter analyzing trajectory..."):
+                trajectory = [
+                    {"toolName": s["label"].split(":")[0], "decision": s["enforcement"],
+                     "reason": s["reason"], "timestamp": "2026-04-28T00:00:00Z"}
+                    for s in steps
+                ]
+                analysis = soe.arbiter_analyze("claims-processor", trajectory)
+
+            if "error" not in analysis:
+                risk_used = analysis.get("riskUsed", 0)
+                risk_max = analysis.get("riskMax", 30)
+                patterns = analysis.get("patterns", [])
+                recommendations = analysis.get("recommendations", [])
+
+                pct = min(int((risk_used / risk_max) * 100), 100) if risk_max else 0
+                color = "#22c55e" if pct < 50 else "#f59e0b" if pct < 80 else "#ef4444"
+                st.markdown(f"""
+                <div style="margin-bottom:12px">
+                  <div style="font-size:13px;color:#64748b;margin-bottom:4px">Risk Budget Used</div>
+                  <div style="background:#e2e8f0;border-radius:6px;height:16px">
+                    <div style="background:{color};width:{pct}%;height:16px;border-radius:6px"></div>
+                  </div>
+                  <div style="font-size:12px;color:{color};margin-top:4px;font-weight:600">{risk_used}/{risk_max} ({pct}%)</div>
+                </div>
+                """, unsafe_allow_html=True)
+                if patterns:
+                    st.caption("**Patterns detected:**")
+                    for p in patterns[:3]:
+                        st.markdown(f"- {p}")
+                if recommendations:
+                    st.caption("**Recommendations:**")
+                    for r in recommendations[:2]:
+                        st.markdown(f"- {r}")
+            else:
+                st.caption("Arbiter analysis not available")
+        else:
+            st.caption("No suspicious trajectory — Arbiter shows clean run ✓")
+            risk = soe.get_risk_state("claims-processor")
+            st.metric("Risk Used", f"{risk.get('riskUsed',0)} / {risk.get('riskMax',30)}", delta=None)
+            st.caption(f"Status: {risk.get('status','normal').upper()}")
+
     if dashboard_url:
-        st.markdown(f"[📊 View full audit trail in SOE Dashboard →]({dashboard_url})")
+        st.markdown(f"\n[📊 View full SOE Dashboard with live feeds →]({dashboard_url})")
 
 # ── SOE Definition Reference ──────────────────────────────────────────────────
 with st.expander("📄 View Active SOE Definition for claims-processor"):

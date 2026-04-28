@@ -42,6 +42,43 @@ class SOEClient:
         )
         return resp.json()
 
+    def arbiter_analyze(self, agent_id: str, events: list) -> dict:
+        """Call Arbiter to analyze a trajectory of events and get risk assessment."""
+        try:
+            resp = requests.post(
+                f"{self.api_url}/v1/arbiter/analyze",
+                json={"agentId": agent_id, "trajectory": events},
+                headers=self.headers,
+                timeout=15,
+            )
+            return resp.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_audit_events(self, agent_id: str) -> dict:
+        """Get Chronicle audit trail for an agent."""
+        try:
+            resp = requests.get(
+                f"{self.api_url}/v1/agents/{agent_id}/audit",
+                headers=self.headers,
+                timeout=10,
+            )
+            return resp.json()
+        except Exception as e:
+            return {"events": [], "error": str(e)}
+
+    def get_risk_state(self, agent_id: str) -> dict:
+        """Get Arbiter risk state for an agent."""
+        try:
+            resp = requests.get(
+                f"{self.api_url}/v1/agents/{agent_id}/risk",
+                headers=self.headers,
+                timeout=10,
+            )
+            return resp.json()
+        except Exception as e:
+            return {"riskUsed": 0, "riskMax": 30, "status": "unknown"}
+
     def health(self) -> bool:
         try:
             resp = requests.get(f"{self.api_url}/v1/health", timeout=5)
