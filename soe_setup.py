@@ -8,7 +8,8 @@ load_dotenv()
 
 SOE_DEFINITION = {
     "agentId": "claims-processor",
-    "version": "1.0.2",
+    "version": "3.2.0",
+    "mode": "enforce",
     "description": "Insurance claims processing agent. Read-only access to claims, policies, and medical codes. Cannot access PII or payment systems.",
     "identity": {
         "role": "InsuranceClaimsProcessor",
@@ -35,6 +36,7 @@ SOE_DEFINITION = {
             "claims/approved/**",
             "claims/denied/**",
             "claims/escalated/**",
+            "decisions/**",
             "reports/**",
         ],
         "writeDeny": [
@@ -43,13 +45,18 @@ SOE_DEFINITION = {
             "policies/**",
             "**/credentials*",
             "**/.env*",
+            "audit/**",
         ],
     },
     "toolActions": {
         "bash": {
             "allow": [
-                "python scripts/fraud-check.py *",
-                "python scripts/validate.py *",
+                "python*fraud*",
+                "python3*fraud*",
+                "python*validate*",
+                "python3*validate*",
+                "grep * claims*",
+                "grep * policies*",
                 "psql -c \"SELECT*",
             ],
             "deny": [
@@ -68,8 +75,8 @@ SOE_DEFINITION = {
         },
     },
     "riskBudget": {
-        "maxPerSession": 30,
-        "thresholds": {"warn": 15, "throttle": 22, "critical": 27, "exhausted": 30},
+        "maxPerSession": 1000,
+        "thresholds": {"warn": 500, "throttle": 750, "critical": 900, "exhausted": 1000},
     },
 }
 
